@@ -1,0 +1,24 @@
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Training outputs
+checkpoints/
+*.pth
+
+# Dataset and data artifacts
+videos/
+dataset/
+*.json
+missing.txt
+wlasl_class_list.txt
+nslt_*.json
+WLASL_v0.3.json
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
