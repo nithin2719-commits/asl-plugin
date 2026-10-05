@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASL Sign Classifier</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%233987e5%22/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="m17 10 5-3v10l-5-3"/></svg>
+      </div>
+      <div>
+        <div class="name">ASL Sign Classifier</div>
+        <div class="muted">Word-level sign recognition from video · 3D ResNet</div>
+      </div>
+    </div>
+    <div class="pills" id="pills"></div>
+  </header>
+
+  <main class="grid">
+    <section class="card player-card">
+      <div class="player">
+        <video id="video" muted loop playsinline controls></video>
+        <div class="drop" id="drop" hidden>Drop a video to classify it</div>
+      </div>
+      <div class="clip-head">
+        <div class="label">Validation clips</div>
+        <label class="btn small" for="file">Upload a video</label>
+        <input type="file" id="file" accept="video/*" hidden>
+      </div>
+      <div class="clips" id="clips"></div>
+    </section>
+
+    <section class="card result-card">
+      <div class="label">Prediction</div>
+      <div class="pred" id="pred">—</div>
+      <div class="truth" id="truth"></div>
+      <ol class="top5" id="top5"></ol>
+      <div class="timing mono" id="timing"></div>
+    </section>
+
+    <section class="card frames-card">
+      <div class="card-head">
+        <div class="label">What the model sees</div>
+        <div class="muted small-text" id="frames-note"></div>
+      </div>
+      <div class="frames" id="frames"></div>
+    </section>
+
+    <section class="card chart-card">
+      <div class="card-head">
+        <div>
+          <div class="label">Training curves</div>
+          <div class="chart-title" id="curve-title">Accuracy by epoch</div>
+        </div>
+        <div class="seg" role="tablist">
+          <button class="active" data-metric="acc">Accuracy</button>
+          <button data-metric="loss">Loss</button>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--s1)"></i>Train</span>
+        <span><i style="background:var(--s2)"></i>Validation</span>
+      </div>
+      <div class="chart" id="curve"></div>
+      <details class="table-view"><summary>Table view</summary><div id="curve-table"></div></details>
+    </section>
+
+    <section class="card cm-card">
+      <div class="card-head">
+        <div>
+          <div class="label">Validation confusion matrix</div>
+          <div class="chart-title" id="cm-title">Run the model over every validation clip</div>
+        </div>
+        <button class="btn small" id="btn-eval">Evaluate</button>
+      </div>
+      <div id="cm"></div>
+    </section>
+  </main>
+  <div class="tooltip" id="tip" hidden></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
