@@ -1,40 +1,89 @@
-# Sign Language Recognition with I3D
+<div align="center">
 
-A production-ready PyTorch implementation for Word-Level American Sign Language (WLASL) recognition using Inflated 3D ConvNet (I3D).
+<img src="assets/banner.png" alt="ASL Video Classifier — word-level sign recognition with a 3D ResNet" width="100%">
+
+<br>
+
+[![pytorch](https://img.shields.io/badge/PyTorch-2.x-151c2b?style=flat-square&logo=pytorch&logoColor=white)](requirements.txt)
+[![backbone](https://img.shields.io/badge/backbone-R3D--18%20%C2%B7%20MC3--18%20%C2%B7%20R(2%2B1)D--18-151c2b?style=flat-square)](model.py)
+[![dataset](https://img.shields.io/badge/dataset-WLASL-151c2b?style=flat-square)](#quick-start)
+[![ui](https://img.shields.io/badge/web%20UI-FastAPI-151c2b?style=flat-square&logo=fastapi&logoColor=white)](app.py)
+
+**Word-level American Sign Language recognition from video, with a training pipeline, a CLI predictor and a browser UI to inspect every prediction.**
+
+[Screenshots](#screenshots) · [Quick start](#quick-start) · [Web UI](#web-ui) · [Training](#training) · [Inference](#inference) · [Project structure](#project-structure)
+
+</div>
+
+---
+
+## Screenshots
+
+<img src="assets/ui.png" alt="The web UI: a validation clip of the sign drink, predicted correctly at 99.9%, the eight sampled frames, training curves and a validation confusion matrix" width="100%">
+
+<table>
+<tr>
+<td width="50%"><img src="assets/ui-help.png" alt="The sign help predicted at 98.1%"></td>
+<td width="50%"><img src="assets/curves-confusion.png" alt="Training curves and the validation confusion matrix"></td>
+</tr>
+<tr>
+<td align="center"><sub><b>help, 98.1%.</b> Pick any validation clip, or drop in your own video.</sub></td>
+<td align="center"><sub><b>Curves and confusion.</b> Train vs. validation accuracy per epoch, and which signs get mixed up.</sub></td>
+</tr>
+</table>
+
+<sub>Screenshots show a demo checkpoint trained with the quick start below: 10 signs, 117 training clips,
+<b>70 % validation accuracy (21 / 30 clips)</b> after about two minutes on an RTX 3070 Ti. With this little data the
+model overfits (100 % train accuracy), so treat it as a pipeline demo, not a benchmark.</sub>
 
 ## Features
 
-- **Pretrained I3D Model**: Uses Kinetics-400 pretrained 3D CNN backbones (R3D-18, MC3-18, R(2+1)D-18)
-- **Mixed Precision Training**: Automatic Mixed Precision (AMP) for faster training on RTX 3070Ti and similar GPUs
-- **Early Stopping**: Prevents overfitting by monitoring validation accuracy
-- **LabelEncoder**: Automatic encoding of class labels with sklearn
-- **Video Backend**: Supports both decord (fast) and torchvision for video loading
-- **Production Ready**: Clean, modular, well-documented code
+- **Pretrained 3D CNN backbones.** R3D-18, MC3-18 and R(2+1)D-18 pretrained on Kinetics-400 via torchvision.
+- **Mixed-precision training** with early stopping, cosine LR schedule, periodic checkpoints and `--resume`.
+- **Training history.** Per-epoch loss, accuracy and learning rate saved to `history.json`.
+- **Label encoding.** A fitted `LabelEncoder` is saved next to the checkpoint for inference.
+- **Fast video loading** with decord, falling back to `torchvision.io`.
+- **One-command dataset.** `scripts/prepare_wlasl_subset.py` downloads a small WLASL subset, crops clips to the signer and writes the splits.
+- **Inference** from Python or the CLI (`predict.py`), and a **web UI** (`app.py`).
 
-## Requirements
+## Quick start
 
-- Python 3.10+
-- PyTorch 2.x
-- CUDA-capable GPU (tested on RTX 3070Ti)
-- Windows/Linux compatible
-
-## Installation
-
-1. **Create virtual environment:**
 ```bash
-# Windows
-py -3.10 -m venv venv
-.\venv\Scripts\Activate.ps1
+git clone https://github.com/nithin2719-commits/asl-plugin.git
+cd asl-plugin
+python -m venv venv && source venv/bin/activate      # Windows: .\venv\Scripts\Activate.ps1
+pip install -r requirements.txt                       # plus ffmpeg on PATH for the dataset script
 
-# Linux/Mac
-python3.10 -m venv venv
-source venv/bin/activate
+# 1. a small, ready-to-train WLASL subset (10 signs, ~150 clips, about 70 MB)
+python scripts/prepare_wlasl_subset.py --out dataset --glosses 10
+
+# 2. fine-tune R3D-18 (about 2 minutes on a recent GPU)
+python train.py --root_dir dataset --train_file dataset/train.txt --val_file dataset/val.txt \
+    --num_frames 32 --frame_size 112 --batch_size 8 --lr 0.0002 --epochs 30 --patience 8
+
+# 3. explore the results
+python app.py --checkpoint checkpoints/best_model.pth --root_dir dataset \
+    --val_file dataset/val.txt --class_names dataset/class_names.json
+# → http://localhost:8000
 ```
 
-2. **Install dependencies:**
-```bash
-pip install -r requirements.txt
-```
+The subset comes from the reduced WLASL release on Hugging Face
+([`jherng/wlasl_reduced`](https://huggingface.co/datasets/jherng/wlasl_reduced)). WLASL is licensed for
+academic, non-commercial use.
+
+## Web UI
+
+`app.py` serves a single page backed by the checkpoint:
+
+| Panel | What it shows |
+|---|---|
+| **Player + clips** | Every clip in `--val_file`, labelled with its true sign. Click one to classify it, or upload or drag in any video. |
+| **Prediction** | Top-5 signs with confidence, whether it matches the true sign, and decode / model time. |
+| **What the model sees** | 8 of the frames actually sampled from the clip, after the same uniform sampling as training. |
+| **Training curves** | Train and validation accuracy or loss per epoch from `history.json`, with the best epoch marked. Hover for exact values; a table view is included. |
+| **Confusion matrix** | Runs the model over every validation clip and shows per-sign recall and which signs get confused. |
+
+API: `GET /api/info`, `POST /api/predict?clip=<path>` (or a raw video body with an `X-Filename` header), `GET /api/evaluate`.
 
 ## Dataset Structure
 
@@ -118,6 +167,7 @@ After training, the following files are saved in `checkpoints/`:
 - `last_model.pth` - Model from the last epoch
 - `label_encoder.pkl` - Fitted LabelEncoder for inference
 - `checkpoint_epoch_N.pth` - Periodic checkpoints
+- `history.json` - Per-epoch train/val loss and accuracy, learning rate and epoch time
 
 ## Model Architecture
 
@@ -130,34 +180,32 @@ The model uses a 3D ResNet backbone pretrained on Kinetics-400:
 
 ## Inference
 
-```python
-import torch
-import pickle
-from model import create_model
-from dataset import WLASLDataset
+**Command line:**
 
-# Load label encoder
-with open('checkpoints/label_encoder.pkl', 'rb') as f:
-    label_encoder = pickle.load(f)
-
-# Load model
-checkpoint = torch.load('checkpoints/best_model.pth')
-model = create_model(
-    num_classes=checkpoint['num_classes'],
-    backbone=checkpoint['backbone'],
-    pretrained=False
-)
-model.load_state_dict(checkpoint['model_state_dict'])
-model.eval()
-
-# Predict
-with torch.no_grad():
-    # video: tensor of shape (1, 3, 32, 224, 224)
-    outputs = model(video)
-    pred_idx = outputs.argmax(dim=1).item()
-    pred_label = label_encoder.inverse_transform([pred_idx])[0]
-    print(f"Predicted class: {pred_label}")
+```bash
+python predict.py --checkpoint checkpoints/best_model.pth --video clip.mp4 \
+    --class_names dataset/class_names.json
 ```
+
+```
+17711.mp4 -> drink
+  drink             73.1%
+  cousin            11.5%
+  ...
+```
+
+**Python:**
+
+```python
+from predict import SignPredictor
+
+p = SignPredictor("checkpoints/best_model.pth", class_names="dataset/class_names.json")
+result = p.predict("clip.mp4", top_k=5)
+print(result["label"], result["top"])
+```
+
+`SignPredictor` reads `num_frames` and `frame_size` from the checkpoint, so clips are sampled and normalised
+exactly as during training.
 
 ## Testing
 
@@ -174,12 +222,15 @@ python model.py
 ## Project Structure
 
 ```
-├── dataset.py          # Custom Dataset class for video loading
-├── model.py            # I3D model wrapper
-├── train.py            # Training script
-├── utils.py            # Utility functions (accuracy, early stopping, etc.)
-├── requirements.txt    # Python dependencies
-└── README.md           # This file
+├── dataset.py                     # WLASLDataset: video loading, frame sampling, label encoding
+├── model.py                       # I3D-style wrapper around torchvision 3D CNNs
+├── train.py                       # training loop, AMP, early stopping, checkpoints, history.json
+├── predict.py                     # SignPredictor + CLI
+├── app.py                         # FastAPI web UI
+├── static/                        # index.html · app.js · style.css
+├── scripts/prepare_wlasl_subset.py  # download + crop a small WLASL subset
+├── utils.py                       # accuracy, early stopping, checkpoint helpers
+└── requirements.txt
 ```
 
 ## Performance Tips

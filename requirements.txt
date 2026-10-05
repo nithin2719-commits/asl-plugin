@@ -5,3 +5,8 @@ numpy>=1.24.0
 tqdm>=4.65.0
 pillow>=9.5.0
 scikit-learn>=1.3.0
+
+# web UI (app.py)
+fastapi>=0.100
+uvicorn>=0.23
+opencv-python>=4.8
