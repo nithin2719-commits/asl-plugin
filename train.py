@@ -9,6 +9,7 @@ This script provides:
 - LabelEncoder saving for inference
 """
 
+import json
 import os
 import argparse
 import time
@@ -302,6 +303,11 @@ def main():
     print("=" * 60)
     
     training_start_time = time.time()
+    history_path = os.path.join(args.save_dir, 'history.json')
+    history = []
+    if args.resume and os.path.exists(history_path):
+        with open(history_path) as f:
+            history = [h for h in json.load(f) if h['epoch'] < start_epoch]
     
     for epoch in range(start_epoch, args.epochs + 1):
         epoch_start_time = time.time()
@@ -341,6 +347,19 @@ def main():
         print(f"  Learning Rate: {current_lr:.6f}")
         print(f"  Epoch Time: {epoch_time:.1f}s")
         
+        # Per-epoch metrics for plotting (read by app.py)
+        history.append({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_acc': train_acc,
+            'val_loss': val_loss,
+            'val_acc': val_acc,
+            'lr': current_lr,
+            'time_sec': round(epoch_time, 2),
+        })
+        with open(history_path, 'w') as f:
+            json.dump(history, f, indent=2)
+        
         # Save best model
         is_best = val_acc > best_val_acc
         if is_best:
@@ -359,6 +378,8 @@ def main():
                     'best_val_acc': best_val_acc,
                     'num_classes': num_classes,
                     'backbone': args.backbone,
+                    'num_frames': args.num_frames,
+                    'frame_size': args.frame_size,
                 },
                 filepath=best_model_path
             )
@@ -383,6 +404,8 @@ def main():
                     'best_val_acc': best_val_acc,
                     'num_classes': num_classes,
                     'backbone': args.backbone,
+                    'num_frames': args.num_frames,
+                    'frame_size': args.frame_size,
                 },
                 filepath=checkpoint_path
             )
@@ -409,6 +432,8 @@ def main():
             'best_val_acc': best_val_acc,
             'num_classes': num_classes,
             'backbone': args.backbone,
+            'num_frames': args.num_frames,
+            'frame_size': args.frame_size,
         },
         filepath=last_model_path
     )
